@@ -45,7 +45,7 @@ jobs:
 
       - name: Generate index
         run: |
-          helm repo index charts/ --url https://mowntan.github.io/k8s-homelab/charts
+          helm repo index charts/ --url https://mowntan.github.io/k8s-ai-lab/charts
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

@@ -2,5 +2,5 @@ apiVersion: v2
 name: llama-cpp
 description: llama.cpp distributed inference with RPC multi-node support
 type: application
-version: 1.0.0
+version: 1.0.1
 appVersion: "b8148"
