@@ -38,20 +38,22 @@ spec:
             - name: rpc
               containerPort: 50052
               protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: rpc
+            failureThreshold: 40
+            periodSeconds: 15
+            timeoutSeconds: 10
           livenessProbe:
             tcpSocket:
               port: rpc
-            initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 10
-            failureThreshold: 10
           readinessProbe:
             tcpSocket:
               port: rpc
-            initialDelaySeconds: 10
             periodSeconds: 15
             timeoutSeconds: 10
-            failureThreshold: 10
           {{- with .Values.rpcWorkers.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
