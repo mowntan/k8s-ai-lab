@@ -2,7 +2,7 @@ fullnameOverride: llama-coder
 
 model:
   path: /models/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
-  name: Qwen2.5-Coder-7B-Instruct-Q4_K_M
+  name: "Coder (Qwen2.5-7B)"
   contextSize: 4096
 
 tolerations:

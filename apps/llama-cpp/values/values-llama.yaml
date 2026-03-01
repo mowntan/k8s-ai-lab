@@ -2,7 +2,7 @@ fullnameOverride: llama-llama
 
 model:
   path: /models/Llama-3.2-3B-Instruct-Q4_K_M.gguf
-  name: Llama-3.2-3B-Instruct-Q4_K_M
+  name: "Fast (Llama-3.2-3B)"
   contextSize: 4096
 
 tolerations:

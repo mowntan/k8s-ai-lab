@@ -2,7 +2,7 @@ fullnameOverride: llama-mistral
 
 model:
   path: /models/Mistral-7B-Instruct-v0.3-Q4_K_M.gguf
-  name: Mistral-7B-Instruct-v0.3-Q4_K_M
+  name: "General (Mistral-7B)"
   contextSize: 4096
 
 tolerations:

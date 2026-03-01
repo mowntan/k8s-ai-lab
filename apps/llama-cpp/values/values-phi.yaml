@@ -2,7 +2,7 @@ fullnameOverride: llama-phi
 
 model:
   path: /models/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf
-  name: Phi-4-mini-instruct-Q4_K_M
+  name: "Reasoning (Phi-4-mini)"
   contextSize: 4096
 
 tolerations:
