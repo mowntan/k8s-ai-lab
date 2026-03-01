@@ -3,9 +3,9 @@ entries:
   llama-cpp:
   - apiVersion: v2
     appVersion: b8148
-    created: "2026-03-01T01:11:25.008527761Z"
+    created: "2026-03-01T04:37:34.804286045Z"
     description: llama.cpp single-node inference, OpenAI-compatible HTTP API
-    digest: ef5435846191881df75d02a6b5c790cba8b64594655923c5d6fdf024b70901f4
+    digest: 5992026863d99ab5e1a8a075a76d171a294e745b7e363d00620b05dd9f655d7c
     name: llama-cpp
     type: application
     urls:
@@ -14,12 +14,12 @@ entries:
   ollama:
   - apiVersion: v2
     appVersion: 0.17.0
-    created: "2026-03-01T01:11:25.008913281Z"
+    created: "2026-03-01T04:37:34.804688101Z"
     description: Ollama local large language model server
-    digest: ce7ce6f83c1496619ea3c943446f2a745118ad6cb2649149ddc28acdffa6c9ef
+    digest: 042400e1ad20ccb8ed73bbe04f68576a89ac1e4bd3f802b6e17b59323594342f
     name: ollama
     type: application
     urls:
     - https://mowntan.github.io/k8s-ai-lab/charts/ollama-1.0.0.tgz
     version: 1.0.0
-generated: "2026-03-01T01:11:25.008069776Z"
+generated: "2026-03-01T04:37:34.803794183Z"
