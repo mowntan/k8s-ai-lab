@@ -1,6 +1,6 @@
 apiVersion: v2
 name: llama-cpp
-description: llama.cpp distributed inference with RPC multi-node support
+description: llama.cpp single-node inference, OpenAI-compatible HTTP API
 type: application
-version: 1.0.2
+version: 2.0.0
 appVersion: "b8148"

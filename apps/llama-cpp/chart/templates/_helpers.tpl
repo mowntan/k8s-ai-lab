@@ -48,19 +48,3 @@ app.kubernetes.io/name: {{ include "llama-cpp.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{/*
-Selector labels for the RPC worker DaemonSet.
-*/}}
-{{- define "llama-cpp.rpcWorkerSelectorLabels" -}}
-app.kubernetes.io/name: {{ include "llama-cpp.name" . }}-rpc-worker
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
-
-{{/*
-Build the comma-separated --rpc flag value from the headless service DNS.
-llama-server accepts a single --rpc host:port argument where host resolves
-to multiple A records (all DaemonSet pod IPs via the headless service).
-*/}}
-{{- define "llama-cpp.rpcAddress" -}}
-{{- printf "%s-rpc-worker:%d" (include "llama-cpp.fullname" .) (50052 | int) }}
-{{- end }}

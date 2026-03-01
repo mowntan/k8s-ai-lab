@@ -14,60 +14,39 @@ podSecurityContext:
 
 securityContext: {}
 
-# Model configuration (used by the coordinator)
+# Model configuration
 model:
   # Path to the GGUF model file inside the container
   path: /models/model.gguf
   # Context window size in tokens
   contextSize: 4096
+  # Model name reported to OpenAI clients (defaults to the chart release name)
+  name: ""
   # Extra flags passed to llama-server
   extraArgs: []
-  # e.g:
-  # extraArgs:
-  #   - "--n-predict"
-  #   - "512"
 
-# Coordinator: runs llama-server, serves the OpenAI-compatible HTTP API
-coordinator:
-  enabled: true
-  replicaCount: 1
+replicaCount: 1
 
-  env:
-    - name: TZ
-      value: "UTC"
+env:
+  - name: TZ
+    value: "UTC"
 
-  service:
-    type: ClusterIP
-    port: 8080
+service:
+  type: ClusterIP
+  port: 8080
 
-  ingress:
-    enabled: false
-    className: ""
-    annotations: {}
-    hosts:
-      - host: llama.example.com
-        paths:
-          - path: /
-            pathType: Prefix
-    tls: []
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: llama.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
 
-  resources: {}
-
-# RPC workers: run llama-rpc-server on every node as a DaemonSet,
-# exposing local RAM/compute to the coordinator
-rpcWorkers:
-  enabled: true
-
-  # Restrict which nodes run the RPC worker pod.
-  # Leave empty to run on all nodes.
-  nodeSelector: {}
-  # e.g. target only nodes labelled role=inference:
-  # nodeSelector:
-  #   role: inference
-
-  tolerations: []
-
-  resources: {}
+resources: {}
 
 # Model storage
 persistence:
