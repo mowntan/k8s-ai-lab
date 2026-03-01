@@ -5,6 +5,11 @@ model:
   name: Mistral-7B-Instruct-v0.3-Q4_K_M
   contextSize: 4096
 
+tolerations:
+  - key: node.longhorn.io/storage
+    operator: Exists
+    effect: NoSchedule
+
 nodeSelector:
   kubernetes.io/hostname: pi4-node02.home.mowntan.com
 

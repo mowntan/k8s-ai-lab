@@ -5,6 +5,11 @@ model:
   name: Llama-3.2-3B-Instruct-Q4_K_M
   contextSize: 4096
 
+tolerations:
+  - key: node.longhorn.io/storage
+    operator: Exists
+    effect: NoSchedule
+
 nodeSelector:
   kubernetes.io/hostname: pi4-node03.home.mowntan.com
 
