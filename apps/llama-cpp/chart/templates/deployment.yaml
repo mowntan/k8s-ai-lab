@@ -36,14 +36,14 @@ spec:
             - sh
             - -c
             - |
-              ARGS="--host 0.0.0.0 --port 8080 --model {{ .Values.model.path }} --ctx-size {{ .Values.model.contextSize }}"
+              set -- --host 0.0.0.0 --port 8080 --model {{ .Values.model.path }} --ctx-size {{ .Values.model.contextSize }}
               {{- if .Values.model.name }}
-              ARGS="${ARGS} --alias {{ .Values.model.name }}"
+              set -- "$@" --alias {{ .Values.model.name | quote }}
               {{- end }}
               {{- range .Values.model.extraArgs }}
-              ARGS="${ARGS} {{ . }}"
+              set -- "$@" {{ . }}
               {{- end }}
-              exec llama-server ${ARGS}
+              exec llama-server "$@"
           volumeMounts:
             - name: models
               mountPath: {{ .Values.persistence.models.mountPath }}
