@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "llama-cpp.name" -}}
+{{- define "open-webui.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "llama-cpp.fullname" -}}
+{{- define "open-webui.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Create a default fully qualified app name.
 {{/*
 Create chart label.
 */}}
-{{- define "llama-cpp.chart" -}}
+{{- define "open-webui.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels.
 */}}
-{{- define "llama-cpp.labels" -}}
-helm.sh/chart: {{ include "llama-cpp.chart" . }}
-{{ include "llama-cpp.selectorLabels" . }}
+{{- define "open-webui.labels" -}}
+helm.sh/chart: {{ include "open-webui.chart" . }}
+{{ include "open-webui.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -41,10 +41,9 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
-Selector labels for the coordinator Deployment.
+Selector labels.
 */}}
-{{- define "llama-cpp.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "llama-cpp.name" . }}
+{{- define "open-webui.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "open-webui.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
-

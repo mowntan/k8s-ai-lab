@@ -1,25 +1,11 @@
 nodeSelector:
-  kubernetes.io/arch: arm64
-  node-role.kubernetes.io/homelab: ""
+  node-role.kubernetes.io/inference: ""
 
 persistence:
   models:
-    enabled: false
+    enabled: true
+    storageClass: longhorn
+    size: 50Gi
 
 webui:
-  enabled: true
-  env:
-    - name: OLLAMA_BASE_URL
-      value: ""
-    - name: OPENAI_API_BASE_URLS
-      value: "http://llama-coder:8080/v1;http://llama-mistral:8080/v1;http://llama-llama:8080/v1;http://llama-phi:8080/v1"
-    - name: OPENAI_API_KEYS
-      value: "none;none;none;none"
-  ingress:
-    enabled: true
-    className: traefik
-    hosts:
-      - host: chat.apps.mowntan.com
-        paths:
-          - path: /
-            pathType: Prefix
+  enabled: false

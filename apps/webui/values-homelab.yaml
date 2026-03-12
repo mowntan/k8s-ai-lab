@@ -1,0 +1,23 @@
+nodeSelector:
+  kubernetes.io/arch: arm64
+  node-role.kubernetes.io/homelab: ""
+
+env:
+  - name: OLLAMA_BASE_URL
+    value: "http://ollama.default.svc.cluster.local:11434"
+  - name: WEBUI_AUTH
+    value: "true"
+
+persistence:
+  enabled: true
+  storageClass: longhorn
+  size: 2Gi
+
+ingress:
+  enabled: true
+  className: traefik
+  hosts:
+    - host: chat.apps.mowntan.com
+      paths:
+        - path: /
+          pathType: Prefix
