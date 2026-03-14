@@ -57,8 +57,8 @@ download bartowski/Llama-3.2-1B-Instruct-GGUF Llama-3.2-1B-Instruct-Q4_K_M.gguf
 ### 1.2 Run the download job
 
 ```bash
-sudo kubectl apply -f apps/llama-cpp/download-models-job.yaml
-sudo kubectl logs -f job/download-models
+kubectl apply -f apps/llama-cpp/download-models-job.yaml -n ai-lab
+kubectl logs -f job/download-models -n ai-lab
 ```
 
 Verify files are present on NFS before proceeding:
@@ -142,7 +142,7 @@ fullnameOverride: llama-coder
 model:
   path: /models/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
   name: "Coder (Qwen2.5-7B)"
-  contextSize: 8192
+  contextSize: 4096  # Keep at 4096 initially — KV cache doubles at 8192 (~500 MB → ~1 GB), eating into the ~1.1 GB headroom on node01. Bump to 8192 only after confirming memory is stable.
 
 speculative:
   enabled: true
@@ -150,6 +150,11 @@ speculative:
   draftMax: 16
   draftMin: 1
   draftPMin: 0.75
+
+tolerations:
+  - key: node.longhorn.io/storage
+    operator: Exists
+    effect: NoSchedule
 
 nodeSelector:
   kubernetes.io/hostname: pi4-node01.home.mowntan.com
@@ -169,7 +174,7 @@ fullnameOverride: llama-llama
 model:
   path: /models/Llama-3.2-3B-Instruct-Q4_K_M.gguf
   name: "Llama (3.2-3B)"
-  contextSize: 8192
+  contextSize: 4096  # Bump to 8192 after confirming memory headroom post-deploy.
 
 speculative:
   enabled: true
@@ -177,6 +182,11 @@ speculative:
   draftMax: 8
   draftMin: 1
   draftPMin: 0.75
+
+tolerations:
+  - key: node.longhorn.io/storage
+    operator: Exists
+    effect: NoSchedule
 
 nodeSelector:
   kubernetes.io/hostname: pi4-node03.home.mowntan.com
@@ -198,12 +208,17 @@ fullnameOverride: llama-mistral
 model:
   path: /models/Mistral-7B-Instruct-v0.3-Q4_K_M.gguf
   name: "Mistral (7B)"
-  contextSize: 8192
+  contextSize: 4096  # Bump to 8192 after confirming memory headroom post-deploy.
 
 speculative:
   enabled: true
   specType: "ngram-simple"
   # No draftModelPath — ngram uses token history, no second model loaded
+
+tolerations:
+  - key: node.longhorn.io/storage
+    operator: Exists
+    effect: NoSchedule
 
 nodeSelector:
   kubernetes.io/hostname: pi4-node02.home.mowntan.com
@@ -221,13 +236,20 @@ persistence:
 fullnameOverride: llama-phi
 
 model:
-  path: /models/Phi-4-mini-Instruct-Q4_K_M.gguf
+  # Verify exact filename on NFS — deployed model uses a microsoft_ prefix.
+  # Check with: ls /volume2/downloads/models/ | grep -i phi
+  path: /models/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf
   name: "Phi (4-mini)"
-  contextSize: 8192
+  contextSize: 4096  # Bump to 8192 after confirming memory headroom post-deploy.
 
 speculative:
   enabled: true
   specType: "ngram-simple"
+
+tolerations:
+  - key: node.longhorn.io/storage
+    operator: Exists
+    effect: NoSchedule
 
 nodeSelector:
   kubernetes.io/hostname: pi4-node04.home.mowntan.com
@@ -250,10 +272,11 @@ Start with the Llama node (smallest models, largest safety margin) to validate t
 ```bash
 # Node 3 first — smallest memory footprint, lowest risk
 helm upgrade --install llama-llama apps/llama-cpp/chart \
-  -f apps/llama-cpp/values/values-llama.yaml
+  -f apps/llama-cpp/values/values-llama.yaml \
+  -n ai-lab
 
 # Verify it loaded both models
-sudo kubectl logs deployment/llama-llama | grep -E "model|draft|spec"
+kubectl logs deployment/llama-llama -n ai-lab | grep -E "model|draft|spec"
 # Expected lines:
 #   llm_load_print_meta: model type = 3B
 #   llm_load_print_meta: model type = 1B   ← draft model
@@ -261,15 +284,18 @@ sudo kubectl logs deployment/llama-llama | grep -E "model|draft|spec"
 
 # Node 1 — Coder with 0.5B draft
 helm upgrade --install llama-coder apps/llama-cpp/chart \
-  -f apps/llama-cpp/values/values-coder.yaml
+  -f apps/llama-cpp/values/values-coder.yaml \
+  -n ai-lab
 
 # Node 2 — Mistral with ngram
 helm upgrade --install llama-mistral apps/llama-cpp/chart \
-  -f apps/llama-cpp/values/values-mistral.yaml
+  -f apps/llama-cpp/values/values-mistral.yaml \
+  -n ai-lab
 
 # Node 4 — Phi with ngram
 helm upgrade --install llama-phi apps/llama-cpp/chart \
-  -f apps/llama-cpp/values/values-phi.yaml
+  -f apps/llama-cpp/values/values-phi.yaml \
+  -n ai-lab
 ```
 
 ### 4.2 Smoke test each endpoint
@@ -277,7 +303,7 @@ helm upgrade --install llama-phi apps/llama-cpp/chart \
 ```bash
 for svc in llama-coder llama-mistral llama-llama llama-phi; do
   echo "--- $svc ---"
-  sudo kubectl run curl-test --rm -it --image=curlimages/curl --restart=Never -- \
+  kubectl run curl-test --rm -it --image=curlimages/curl --restart=Never -n ai-lab -- \
     curl -s http://${svc}:8080/v1/models | jq '.data[].id'
 done
 ```
@@ -321,11 +347,13 @@ Speculative decoding is a flag-level change — rolling back is a single Helm up
 # Disable speculative decoding on a single release
 helm upgrade llama-coder apps/llama-cpp/chart \
   -f apps/llama-cpp/values/values-coder.yaml \
-  --set speculative.enabled=false
+  --set speculative.enabled=false \
+  -n ai-lab
 
 # Or restore the pre-speculative values files entirely
 helm upgrade --install llama-coder apps/llama-cpp/chart \
-  -f apps/llama-cpp/values/values-coder-pre-speculative.yaml
+  -f apps/llama-cpp/values/values-coder-pre-speculative.yaml \
+  -n ai-lab
 ```
 
 Keep a copy of the current working values files as `values-*-pre-speculative.yaml` before starting Phase 4.
@@ -347,13 +375,13 @@ This approach requires no inter-node networking, no new Kubernetes primitives, n
 
 ## Open Questions
 
-1. **Qwen2.5-Coder-0.5B memory footprint on arm64** — The 0.4 GB estimate is based on Q4_K_M quantization. Verify actual RSS after loading: `sudo kubectl exec deployment/llama-coder -- cat /proc/meminfo | grep MemAvailable`. If headroom drops below 800 MB, switch to a Q2_K draft to reduce model size further.
+1. **Qwen2.5-Coder-0.5B memory footprint on arm64** — The 0.4 GB estimate is based on Q4_K_M quantization. Verify actual RSS after loading: `kubectl exec deployment/llama-coder -n ai-lab -- cat /proc/meminfo | grep MemAvailable`. If headroom drops below 800 MB, switch to a Q2_K draft to reduce model size further.
 
 2. **ngram effectiveness on Mistral/Phi** — ngram-simple provides modest gains only on repetitive or structured prompts. If real-world acceptance rate stays below 1.2× on typical chat workloads, disabling it (setting `speculative.enabled: false`) is preferable to the small overhead cost.
 
 3. **Flash attention interaction** — The test suite confirms flash attention and speculative decoding are incompatible. If the current values files have `--flash-attn` enabled, ensure the chart guard in Phase 2.2 removes it when `speculative.enabled: true`. Check current flags with:
    ```bash
-   sudo kubectl exec deployment/llama-coder -- ps aux | grep llama-server
+   kubectl exec deployment/llama-coder -n ai-lab -- ps aux | grep llama-server
    ```
 
 ---
