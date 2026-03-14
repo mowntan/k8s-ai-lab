@@ -71,7 +71,7 @@ rpc:
   # workers:
   #   - host: pi4-node02.home.mowntan.com
   #     port: 50052
-  #     mem: 7000
+  #     mem: 7000   # MB to advertise to the leader (per-worker)
 ```
 
 ### 2.2 Modify `chart/templates/deployment.yaml`
@@ -118,13 +118,17 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command:
-            - llama-rpc-server
-            - --host
-            - "0.0.0.0"
-            - --port
-            - {{ .Values.rpc.port | quote }}
-            - --mem
-            - {{ .Values.rpc.mem | default "7000" | quote }}
+            - sh
+            - -c
+            - |
+              HOSTNAME=$(hostname -f)
+              MEM={{ .Values.rpc.defaultMem | default 7000 }}
+              {{- range .Values.rpc.workers }}
+              {{- if .mem }}
+              [ "$HOSTNAME" = "{{ .host }}" ] && MEM={{ .mem }}
+              {{- end }}
+              {{- end }}
+              exec llama-rpc-server --host 0.0.0.0 --port {{ .Values.rpc.port }} --mem "$MEM"
           ports:
             - name: rpc
               containerPort: {{ .Values.rpc.port }}
@@ -159,6 +163,8 @@ spec:
 
 **Why DaemonSet instead of StatefulSet?** RPC workers are stateless — they don't hold model data, they just expose memory. The leader streams weight data to them at startup. A DaemonSet with `nodeSelector` pins one worker per node with no ordinal management needed.
 
+**Per-worker `mem` override:** The DaemonSet runs the same pod spec on every node, but the entrypoint script checks `hostname -f` against the `workers[]` list and picks up a per-worker `mem` value if one is set. If not, it falls back to `rpc.defaultMem` (default 7000 MB). This supports mixed-RAM clusters (e.g., 8 GB and 4 GB Pis) without needing separate DaemonSets.
+
 **Why hostNetwork?** Our distributed-llama experience showed that CNI overlay can cause socket issues during large transfers. `hostNetwork: true` uses the host's network stack directly, which is simpler and more reliable for the sustained TCP connections RPC uses. The leader references workers by hostname (e.g., `pi4-node02.home.mowntan.com:50052`), bypassing Kubernetes service DNS entirely.
 
 ### 2.4 Modify the leader Deployment for RPC mode
@@ -166,6 +172,7 @@ spec:
 When `rpc.enabled`, the leader needs:
 - `hostNetwork: true` (to reach workers on host network)
 - `dnsPolicy: ClusterFirstWithHostNet`
+- An init container that waits for all RPC workers to be reachable
 - A longer startup probe (model distribution takes time over GbE)
 
 Add to `deployment.yaml`:
@@ -178,19 +185,38 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
+      {{- if .Values.rpc.enabled }}
+      initContainers:
+        - name: wait-for-rpc-workers
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              {{- range .Values.rpc.workers }}
+              echo "Waiting for RPC worker {{ .host }}:{{ .port }}..."
+              until nc -z {{ .host }} {{ .port }}; do
+                sleep 2
+              done
+              echo "Worker {{ .host }}:{{ .port }} ready."
+              {{- end }}
+              echo "All RPC workers reachable."
+      {{- end }}
       # ... rest of spec
 ```
 
-And increase the startup probe for RPC mode:
+This is critical — without it, `llama-server` will start before workers are listening and fail to connect. The init container blocks until every worker responds to a TCP probe on the RPC port.
+
+Increase the startup probe for RPC mode (weight distribution over GbE takes time):
 
 ```yaml
-startupProbe:
-  httpGet:
-    path: /health
-    port: http
-  failureThreshold: {{ if .Values.rpc.enabled }}240{{ else }}60{{ end }}
-  periodSeconds: 15
-  timeoutSeconds: 10
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: {{ if .Values.rpc.enabled }}240{{ else }}60{{ end }}
+            periodSeconds: 15
+            timeoutSeconds: 10
 ```
 
 ### 2.5 Security
@@ -218,14 +244,17 @@ model:
 rpc:
   enabled: true
   port: 50052
-  mem: 7000
+  defaultMem: 7000
   workers:
     - host: pi4-node02.home.mowntan.com
       port: 50052
+      mem: 7000
     - host: pi4-node03.home.mowntan.com
       port: 50052
+      mem: 7000
     - host: pi4-node04.home.mowntan.com
       port: 50052
+      mem: 7000
   nodeSelector:
     node-role.kubernetes.io/inference: ""
   tolerations:
@@ -349,22 +378,120 @@ Ensure the Traefik IngressRoute for `chat.apps.mowntan.com` points to Open WebUI
 
 ---
 
-## Phase 7: (Optional) Restore Per-Node Replica Models
+## Phase 7: Restore Per-Node Replica Models on Homelab Nodes
 
-If you also want the smaller models running alongside the distributed 14B, re-deploy the original 4 per-node releases. However, this would conflict since all 4 inference nodes are used as RPC workers for the 14B.
+All 4 inference nodes are dedicated to the distributed 14B as RPC workers. To also serve smaller models, deploy them on the homelab nodes (pi4-node05 through pi4-node08) instead.
 
-**Option A: Dedicated 14B cluster (all 4 nodes)**
-- All nodes run RPC workers + one leader
-- Only the 14B model is available
-- Maximum memory for the distributed model
+### 7.1 Create homelab values files
 
-**Option B: Mixed — 1 leader + 3 RPC workers, no small models on inference nodes**
-- Same as Option A but acknowledges the tradeoff explicitly
+`values/values-coder-homelab.yaml`:
+```yaml
+fullnameOverride: llama-coder
 
-**Option C: Run small models on homelab nodes instead**
-- Move Coder/Mistral/Llama/Phi to pi4-node05 through pi4-node08
-- Keep all 4 inference nodes for the 14B
-- Requires homelab nodes to have enough RAM for the smaller models
+model:
+  path: /models/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+  name: "Coder (Qwen2.5-7B)"
+  contextSize: 4096
+
+tolerations:
+  - key: node.longhorn.io/storage
+    operator: Exists
+    effect: NoSchedule
+
+nodeSelector:
+  kubernetes.io/hostname: pi4-node05.home.mowntan.com
+
+persistence:
+  models:
+    nfs:
+      server: synology-nas01.home.mowntan.com
+      path: /volume2/downloads/models
+```
+
+`values/values-mistral-homelab.yaml`:
+```yaml
+fullnameOverride: llama-mistral
+
+model:
+  path: /models/Mistral-7B-Instruct-v0.3-Q4_K_M.gguf
+  name: "General (Mistral-7B)"
+  contextSize: 4096
+
+tolerations:
+  - key: node.longhorn.io/storage
+    operator: Exists
+    effect: NoSchedule
+
+nodeSelector:
+  kubernetes.io/hostname: pi4-node06.home.mowntan.com
+
+persistence:
+  models:
+    nfs:
+      server: synology-nas01.home.mowntan.com
+      path: /volume2/downloads/models
+```
+
+`values/values-llama-homelab.yaml`:
+```yaml
+fullnameOverride: llama-llama
+
+model:
+  path: /models/Llama-3.2-3B-Instruct-Q4_K_M.gguf
+  name: "Fast (Llama-3.2-3B)"
+  contextSize: 4096
+
+tolerations:
+  - key: node.longhorn.io/storage
+    operator: Exists
+    effect: NoSchedule
+
+nodeSelector:
+  kubernetes.io/hostname: pi4-node07.home.mowntan.com
+
+persistence:
+  models:
+    nfs:
+      server: synology-nas01.home.mowntan.com
+      path: /volume2/downloads/models
+```
+
+`values/values-phi-homelab.yaml`:
+```yaml
+fullnameOverride: llama-phi
+
+model:
+  path: /models/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf
+  name: "Reasoning (Phi-4-mini)"
+  contextSize: 4096
+
+tolerations:
+  - key: node.longhorn.io/storage
+    operator: Exists
+    effect: NoSchedule
+
+nodeSelector:
+  kubernetes.io/hostname: pi4-node08.home.mowntan.com
+
+persistence:
+  models:
+    nfs:
+      server: synology-nas01.home.mowntan.com
+      path: /volume2/downloads/models
+```
+
+### 7.2 Deploy
+
+```bash
+helm upgrade --install llama-coder apps/llama-cpp/chart -f apps/llama-cpp/values/values-coder-homelab.yaml
+helm upgrade --install llama-mistral apps/llama-cpp/chart -f apps/llama-cpp/values/values-mistral-homelab.yaml
+helm upgrade --install llama-llama apps/llama-cpp/chart -f apps/llama-cpp/values/values-llama-homelab.yaml
+helm upgrade --install llama-phi apps/llama-cpp/chart -f apps/llama-cpp/values/values-phi-homelab.yaml
+```
+
+### 7.3 Note on homelab node capacity
+
+The homelab nodes (pi4-node05 through 08) are also 8 GB Pi4s running sonarr, radarr, sabnzbd, etc. The smaller models (2–4.5 GB) should fit alongside those workloads, but monitor memory usage after deploy. The 7B models (~4.5 GB) are the tightest fit.
 
 ---
 
@@ -376,11 +503,14 @@ If RPC doesn't work on the Pi4 cluster (as distributed-llama didn't), fall back 
 # Remove the distributed deployment
 helm uninstall llama-qwen14b
 
-# Restore individual per-node deployments
+# Restore individual per-node deployments on inference nodes
 helm upgrade --install llama-coder apps/llama-cpp/chart -f apps/llama-cpp/values/values-coder.yaml
 helm upgrade --install llama-mistral apps/llama-cpp/chart -f apps/llama-cpp/values/values-mistral.yaml
 helm upgrade --install llama-llama apps/llama-cpp/chart -f apps/llama-cpp/values/values-llama.yaml
 helm upgrade --install llama-phi apps/llama-cpp/chart -f apps/llama-cpp/values/values-phi.yaml
+
+# If Phase 7 homelab models are running, uninstall those too
+helm uninstall llama-coder llama-mistral llama-llama llama-phi 2>/dev/null
 ```
 
 ---
@@ -402,5 +532,8 @@ helm upgrade --install llama-phi apps/llama-cpp/chart -f apps/llama-cpp/values/v
 
 1. **llama.cpp RPC on arm64 Pi4** — Has anyone successfully run RPC tensor parallelism on Raspberry Pi 4? The Arm Learning Path docs cover Graviton (server-class arm64) but not Pi4 specifically.
 2. **GbE bandwidth** — At ~125 MB/s theoretical max, distributing 8.5 GB of weights takes ~68 seconds minimum. Is the RPC protocol tolerant of slow links?
-3. **KV cache distribution** — Does RPC spread the KV cache across workers, or does only the leader hold it? This affects the effective context window at 4096.
-4. **Startup ordering** — RPC workers must be ready before the leader starts. The current chart doesn't enforce this. Options: init container (as dllama chart had), or rely on llama-server's retry logic.
+
+### Resolved
+
+- **KV cache distribution** — Confirmed: the leader distributes both weights and KV cache across workers proportionally to their advertised memory. At 4096 context with a 14B model, KV cache is ~1–2 GB total, spread across 4 nodes — well within the ~3.9 GB headroom per node.
+- **Startup ordering** — Resolved in Phase 2.4: init container on the leader does TCP probes against each worker before `llama-server` starts.
