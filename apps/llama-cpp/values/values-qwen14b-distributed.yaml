@@ -1,0 +1,42 @@
+fullnameOverride: llama-qwen14b
+
+model:
+  path: /models/Qwen2.5-14B-Instruct-Q4_K_M.gguf
+  name: "Large (Qwen2.5-14B)"
+  contextSize: 4096
+
+rpc:
+  enabled: true
+  port: 50052
+  defaultMem: 7000
+  workers:
+    - host: pi4-node02.home.mowntan.com
+      port: 50052
+      mem: 7000
+    - host: pi4-node03.home.mowntan.com
+      port: 50052
+      mem: 7000
+    - host: pi4-node04.home.mowntan.com
+      port: 50052
+      mem: 7000
+  nodeSelector:
+    node-role.kubernetes.io/inference: ""
+  tolerations:
+    - key: node.longhorn.io/storage
+      operator: Exists
+      effect: NoSchedule
+
+tolerations:
+  - key: node.longhorn.io/storage
+    operator: Exists
+    effect: NoSchedule
+
+# Leader pinned to node01
+nodeSelector:
+  kubernetes.io/hostname: pi4-node01.home.mowntan.com
+
+persistence:
+  models:
+    nfs:
+      server: synology-nas01.home.mowntan.com
+      path: /volume2/downloads/models

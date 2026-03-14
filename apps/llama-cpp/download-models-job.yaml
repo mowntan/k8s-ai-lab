@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: download-models
+  namespace: ai-lab
+spec:
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: downloader
+          image: alpine:3
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              apk add --no-cache wget
+
+              BASE_URL="https://huggingface.co"
+
+              download() {
+                local repo="$1"
+                local file="$2"
+                local dest="/models/${file}"
+                if [ -f "${dest}" ]; then
+                  echo "SKIP: ${file} already exists"
+                else
+                  echo "Downloading ${file}..."
+                  wget -q --show-progress -O "${dest}.tmp" \
+                    "${BASE_URL}/${repo}/resolve/main/${file}"
+                  mv "${dest}.tmp" "${dest}"
+                  echo "Done: ${file}"
+                fi
+              }
+
+              download bartowski/Qwen2.5-Coder-7B-Instruct-GGUF  Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+              download bartowski/Mistral-7B-Instruct-v0.3-GGUF   Mistral-7B-Instruct-v0.3-Q4_K_M.gguf
+              download bartowski/Llama-3.2-3B-Instruct-GGUF       Llama-3.2-3B-Instruct-Q4_K_M.gguf
+              download bartowski/microsoft_Phi-4-mini-instruct-GGUF microsoft_Phi-4-mini-instruct-Q4_K_M.gguf
+              download bartowski/Qwen2.5-14B-Instruct-GGUF Qwen2.5-14B-Instruct-Q4_K_M.gguf
+
+              echo "All done."
+          volumeMounts:
+            - name: models
+              mountPath: /models
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: models
+          nfs:
+            server: synology-nas01.home.mowntan.com
+            path: /volume2/downloads/models

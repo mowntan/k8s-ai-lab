@@ -1,0 +1,82 @@
+image:
+  repository: ghcr.io/mowntan/llama-cpp
+  pullPolicy: Always
+  # Overrides the image tag; defaults to chart appVersion
+  tag: ""
+
+nameOverride: ""
+fullnameOverride: ""
+
+podSecurityContext:
+  runAsUser: 6551
+  runAsGroup: 6551
+  fsGroup: 6551
+
+securityContext: {}
+
+# Model configuration
+model:
+  # Path to the GGUF model file inside the container
+  path: /models/model.gguf
+  # Context window size in tokens
+  contextSize: 4096
+  # Model name reported to OpenAI clients (defaults to the chart release name)
+  name: ""
+  # Extra flags passed to llama-server
+  extraArgs: []
+
+replicaCount: 1
+
+env:
+  - name: TZ
+    value: "UTC"
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: llama.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources: {}
+
+# Model storage
+persistence:
+  models:
+    # Path inside the container
+    mountPath: /models
+    # NFS share (recommended): mount a shared NFS volume on all nodes.
+    # Set nfs.server and nfs.path to enable.
+    nfs:
+      server: ""
+      path: ""
+    # hostPath fallback: path on each host node's local disk.
+    # Only used if nfs.server is empty.
+    hostPath: /var/lib/llama-models
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# RPC tensor parallelism — distribute model across multiple nodes
+rpc:
+  enabled: false
+  port: 50052
+  defaultMem: 7000
+  workers: []
+  # Example:
+  # workers:
+  #   - host: pi4-node02.home.mowntan.com
+  #     port: 50052
+  #     mem: 7000   # MB to advertise to the leader (per-worker)
+  nodeSelector: {}
+  tolerations: []
+  resources: {}

@@ -1,0 +1,90 @@
+{{- if .Values.rpc.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "llama-cpp.fullname" . }}-rpc
+  labels:
+    {{- include "llama-cpp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rpc-worker
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - port: {{ .Values.rpc.port }}
+      targetPort: rpc
+      protocol: TCP
+      name: rpc
+  selector:
+    {{- include "llama-cpp.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: rpc-worker
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "llama-cpp.fullname" . }}-rpc-worker
+  labels:
+    {{- include "llama-cpp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rpc-worker
+spec:
+  selector:
+    matchLabels:
+      {{- include "llama-cpp.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rpc-worker
+  template:
+    metadata:
+      labels:
+        {{- include "llama-cpp.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: rpc-worker
+    spec:
+      containers:
+        - name: rpc-worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - llama-rpc-server
+            - --host
+            - "0.0.0.0"
+            - --port
+            - {{ .Values.rpc.port | quote }}
+          ports:
+            - name: rpc
+              containerPort: {{ .Values.rpc.port }}
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: rpc
+            failureThreshold: 30
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: rpc
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: rpc
+            periodSeconds: 10
+          {{- with .Values.rpc.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.rpc.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.rpc.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      {{- range .Values.rpc.workers }}
+                      - {{ .host }}
+                      {{- end }}
+{{- end }}
