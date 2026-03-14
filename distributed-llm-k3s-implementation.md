@@ -2,7 +2,16 @@
 
 ## Goal
 
-Restore the llama-cpp Helm chart and extend it with RPC-based tensor parallelism so the 4 inference Pi4 nodes (8 GB each) can pool memory for a single 14B model — while keeping the existing per-node replica approach for smaller models. Expose all endpoints through Open WebUI at `chat.apps.mowntan.com`.
+Restore the llama-cpp Helm chart and extend it with RPC-based tensor parallelism so the 4 inference Pi4 nodes (8 GB each) can pool memory for a single 14B model. Expose the endpoint through Open WebUI at `chat.apps.mowntan.com`.
+
+---
+
+## Requirements
+
+- All resources must be deployed in the **`ai-lab` namespace**.
+- Model inference (llama-server, RPC workers) must only run on **inference nodes** (pi4-node01 through pi4-node04).
+- **No models** should run on homelab nodes (pi4-node05 through pi4-node08).
+- Ancillary services (Open WebUI, etc.) may run on homelab nodes.
 
 ---
 
@@ -14,6 +23,7 @@ Restore the llama-cpp Helm chart and extend it with RPC-based tensor parallelism
 | pi4-node02 | inference | RPC worker |
 | pi4-node03 | inference | RPC worker |
 | pi4-node04 | inference | RPC worker |
+| pi4-node05–08 | homelab | Ancillary services only (no models) |
 | synology-nas01 | NFS | Model storage at `/volume2/downloads/models` |
 
 ---
@@ -307,8 +317,8 @@ This is an 8.5 GB file. It will be stored on NFS and only the leader needs to re
 ### 4.2 Run the job
 
 ```bash
-sudo kubectl apply -f apps/llama-cpp/download-models-job.yaml
-sudo kubectl logs -f job/download-models
+sudo kubectl apply -f apps/llama-cpp/download-models-job.yaml -n ai-lab
+sudo kubectl logs -f job/download-models -n ai-lab
 ```
 
 ---
@@ -333,20 +343,21 @@ Single Helm release deploys both the RPC workers (DaemonSet) and the leader (Dep
 
 ```bash
 helm upgrade --install llama-qwen14b apps/llama-cpp/chart \
-  -f apps/llama-cpp/values/values-qwen14b-distributed.yaml
+  -f apps/llama-cpp/values/values-qwen14b-distributed.yaml \
+  -n ai-lab --create-namespace
 ```
 
 ### 5.3 Verify
 
 ```bash
 # Check RPC workers are running
-sudo kubectl get pods -l app.kubernetes.io/component=rpc-worker
+sudo kubectl get pods -n ai-lab -l app.kubernetes.io/component=rpc-worker
 
 # Check leader starts and connects
-sudo kubectl logs deployment/llama-qwen14b -f
+sudo kubectl logs deployment/llama-qwen14b -n ai-lab -f
 
 # Smoke test
-sudo kubectl run curl --rm -it --image=curlimages/curl -- \
+sudo kubectl run curl -n ai-lab --rm -it --image=curlimages/curl -- \
   curl -s http://llama-qwen14b:8080/v1/models
 ```
 
@@ -356,142 +367,17 @@ sudo kubectl run curl --rm -it --image=curlimages/curl -- \
 
 ### 6.1 Deploy Open WebUI
 
-Restore or deploy Open WebUI with the 14B endpoint added to `OPENAI_API_BASE_URLS`:
+Deploy Open WebUI in `ai-lab` namespace (may run on a homelab node) with the 14B endpoint:
 
 ```yaml
 env:
   - name: OPENAI_API_BASE_URLS
-    value: "http://llama-qwen14b:8080/v1"
-```
-
-If also running per-node smaller models (Phase 7), include all endpoints:
-
-```yaml
-env:
-  - name: OPENAI_API_BASE_URLS
-    value: "http://llama-qwen14b:8080/v1;http://llama-coder:8080/v1;http://llama-mistral:8080/v1;http://llama-llama:8080/v1;http://llama-phi:8080/v1"
+    value: "http://llama-qwen14b.ai-lab.svc:8080/v1"
 ```
 
 ### 6.2 Ingress
 
 Ensure the Traefik IngressRoute for `chat.apps.mowntan.com` points to Open WebUI.
-
----
-
-## Phase 7: Restore Per-Node Replica Models on Homelab Nodes
-
-All 4 inference nodes are dedicated to the distributed 14B as RPC workers. To also serve smaller models, deploy them on the homelab nodes (pi4-node05 through pi4-node08) instead.
-
-### 7.1 Create homelab values files
-
-`values/values-coder-homelab.yaml`:
-```yaml
-fullnameOverride: llama-coder
-
-model:
-  path: /models/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
-  name: "Coder (Qwen2.5-7B)"
-  contextSize: 4096
-
-tolerations:
-  - key: node.longhorn.io/storage
-    operator: Exists
-    effect: NoSchedule
-
-nodeSelector:
-  kubernetes.io/hostname: pi4-node05.home.mowntan.com
-
-persistence:
-  models:
-    nfs:
-      server: synology-nas01.home.mowntan.com
-      path: /volume2/downloads/models
-```
-
-`values/values-mistral-homelab.yaml`:
-```yaml
-fullnameOverride: llama-mistral
-
-model:
-  path: /models/Mistral-7B-Instruct-v0.3-Q4_K_M.gguf
-  name: "General (Mistral-7B)"
-  contextSize: 4096
-
-tolerations:
-  - key: node.longhorn.io/storage
-    operator: Exists
-    effect: NoSchedule
-
-nodeSelector:
-  kubernetes.io/hostname: pi4-node06.home.mowntan.com
-
-persistence:
-  models:
-    nfs:
-      server: synology-nas01.home.mowntan.com
-      path: /volume2/downloads/models
-```
-
-`values/values-llama-homelab.yaml`:
-```yaml
-fullnameOverride: llama-llama
-
-model:
-  path: /models/Llama-3.2-3B-Instruct-Q4_K_M.gguf
-  name: "Fast (Llama-3.2-3B)"
-  contextSize: 4096
-
-tolerations:
-  - key: node.longhorn.io/storage
-    operator: Exists
-    effect: NoSchedule
-
-nodeSelector:
-  kubernetes.io/hostname: pi4-node07.home.mowntan.com
-
-persistence:
-  models:
-    nfs:
-      server: synology-nas01.home.mowntan.com
-      path: /volume2/downloads/models
-```
-
-`values/values-phi-homelab.yaml`:
-```yaml
-fullnameOverride: llama-phi
-
-model:
-  path: /models/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf
-  name: "Reasoning (Phi-4-mini)"
-  contextSize: 4096
-
-tolerations:
-  - key: node.longhorn.io/storage
-    operator: Exists
-    effect: NoSchedule
-
-nodeSelector:
-  kubernetes.io/hostname: pi4-node08.home.mowntan.com
-
-persistence:
-  models:
-    nfs:
-      server: synology-nas01.home.mowntan.com
-      path: /volume2/downloads/models
-```
-
-### 7.2 Deploy
-
-```bash
-helm upgrade --install llama-coder apps/llama-cpp/chart -f apps/llama-cpp/values/values-coder-homelab.yaml
-helm upgrade --install llama-mistral apps/llama-cpp/chart -f apps/llama-cpp/values/values-mistral-homelab.yaml
-helm upgrade --install llama-llama apps/llama-cpp/chart -f apps/llama-cpp/values/values-llama-homelab.yaml
-helm upgrade --install llama-phi apps/llama-cpp/chart -f apps/llama-cpp/values/values-phi-homelab.yaml
-```
-
-### 7.3 Note on homelab node capacity
-
-The homelab nodes (pi4-node05 through 08) are also 8 GB Pi4s running sonarr, radarr, sabnzbd, etc. The smaller models (2–4.5 GB) should fit alongside those workloads, but monitor memory usage after deploy. The 7B models (~4.5 GB) are the tightest fit.
 
 ---
 
@@ -501,16 +387,13 @@ If RPC doesn't work on the Pi4 cluster (as distributed-llama didn't), fall back 
 
 ```bash
 # Remove the distributed deployment
-helm uninstall llama-qwen14b
+helm uninstall llama-qwen14b -n ai-lab
 
 # Restore individual per-node deployments on inference nodes
-helm upgrade --install llama-coder apps/llama-cpp/chart -f apps/llama-cpp/values/values-coder.yaml
-helm upgrade --install llama-mistral apps/llama-cpp/chart -f apps/llama-cpp/values/values-mistral.yaml
-helm upgrade --install llama-llama apps/llama-cpp/chart -f apps/llama-cpp/values/values-llama.yaml
-helm upgrade --install llama-phi apps/llama-cpp/chart -f apps/llama-cpp/values/values-phi.yaml
-
-# If Phase 7 homelab models are running, uninstall those too
-helm uninstall llama-coder llama-mistral llama-llama llama-phi 2>/dev/null
+helm upgrade --install llama-coder apps/llama-cpp/chart -f apps/llama-cpp/values/values-coder.yaml -n ai-lab
+helm upgrade --install llama-mistral apps/llama-cpp/chart -f apps/llama-cpp/values/values-mistral.yaml -n ai-lab
+helm upgrade --install llama-llama apps/llama-cpp/chart -f apps/llama-cpp/values/values-llama.yaml -n ai-lab
+helm upgrade --install llama-phi apps/llama-cpp/chart -f apps/llama-cpp/values/values-phi.yaml -n ai-lab
 ```
 
 ---
