@@ -20,3 +20,6 @@ charts/index.yaml
 dist/
 build/
 *.log
+
+# Claude Code
+CLAUDE.md
