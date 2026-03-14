@@ -3,20 +3,20 @@ entries:
   llama-cpp:
   - apiVersion: v2
     appVersion: b8340
-    created: "2026-03-14T22:18:01.30320761Z"
+    created: "2026-03-14T23:40:47.658811235Z"
     description: llama.cpp single-node inference, OpenAI-compatible HTTP API
-    digest: 606b3c1d9e6f16c424eab050c8b66128f72a74a4d53afd7f3f99e5bc92af8a3f
+    digest: 30c42c6190953bba2d80552ec03d183a8103844a3ef4efb95b889bbb2209d974
     name: llama-cpp
     type: application
     urls:
-    - https://mowntan.github.io/k8s-ai-lab/charts/llama-cpp-2.0.0.tgz
-    version: 2.0.0
+    - https://mowntan.github.io/k8s-ai-lab/charts/llama-cpp-2.1.0.tgz
+    version: 2.1.0
   ollama:
   - apiVersion: v2
     appVersion: 0.17.0
-    created: "2026-03-14T22:18:01.303755065Z"
+    created: "2026-03-14T23:40:47.659209336Z"
     description: Ollama local large language model server
-    digest: 41b9e830859d804178496446d5d01853ae36128b7a17487dbe16e337e11fdc30
+    digest: c7fa44714b647e63d80d5ed0e30aa1febae76423d8cd46bc82ae83bda7dee269
     name: ollama
     type: application
     urls:
@@ -25,12 +25,12 @@ entries:
   open-webui:
   - apiVersion: v2
     appVersion: 0.8.3
-    created: "2026-03-14T22:18:01.30422751Z"
+    created: "2026-03-14T23:40:47.659468702Z"
     description: Open WebUI for Ollama
-    digest: c4187d0db53b52950f03af53ae9771b909ce60551d060d60aa65765625e4e224
+    digest: 6a00c0c88ad6f8c031dd0211fce2b7596ec110129880f46e71a3cd9882b50775
     name: open-webui
     type: application
     urls:
     - https://mowntan.github.io/k8s-ai-lab/charts/open-webui-1.0.0.tgz
     version: 1.0.0
-generated: "2026-03-14T22:18:01.302609711Z"
+generated: "2026-03-14T23:40:47.658292547Z"
