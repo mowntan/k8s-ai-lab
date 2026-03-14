@@ -4,7 +4,11 @@ nodeSelector:
 
 env:
   - name: OLLAMA_BASE_URL
-    value: "http://ollama.default.svc.cluster.local:11434"
+    value: ""
+  - name: OPENAI_API_BASE_URLS
+    value: "http://llama-coder.ai-lab.svc:8080/v1;http://llama-mistral.ai-lab.svc:8080/v1;http://llama-llama.ai-lab.svc:8080/v1;http://llama-phi.ai-lab.svc:8080/v1"
+  - name: OPENAI_API_KEYS
+    value: "none;none;none;none"
   - name: WEBUI_AUTH
     value: "true"
 
