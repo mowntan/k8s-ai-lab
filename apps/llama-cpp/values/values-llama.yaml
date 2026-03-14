@@ -5,6 +5,13 @@ model:
   name: "Fast (Llama-3.2-3B)"
   contextSize: 4096
 
+speculative:
+  enabled: true
+  draftModelPath: /models/Llama-3.2-1B-Instruct-Q4_K_M.gguf
+  draftMax: 8
+  draftMin: 1
+  draftPMin: 0.75
+
 tolerations:
   - key: node.longhorn.io/storage
     operator: Exists

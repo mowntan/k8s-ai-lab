@@ -66,6 +66,20 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# Speculative decoding configuration
+speculative:
+  enabled: false
+  # Path to the draft model GGUF on the same volume as the target model
+  draftModelPath: ""
+  # Number of tokens to speculatively generate per iteration
+  draftMax: 16
+  draftMin: 1
+  # Minimum draft acceptance probability threshold (0.0–1.0)
+  draftPMin: 0.75
+  # Fallback spec type when no draft model is provided
+  # Options: none | ngram-simple | ngram-cache | ngram-map-k
+  specType: "none"
+
 # RPC tensor parallelism — distribute model across multiple nodes
 rpc:
   enabled: false

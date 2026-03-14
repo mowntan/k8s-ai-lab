@@ -5,6 +5,10 @@ model:
   name: "Reasoning (Phi-4-mini)"
   contextSize: 4096
 
+speculative:
+  enabled: true
+  specType: "ngram-simple"
+
 tolerations:
   - key: node.longhorn.io/storage
     operator: Exists

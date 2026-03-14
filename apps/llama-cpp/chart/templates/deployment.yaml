@@ -94,6 +94,16 @@ spec:
               RPC_WORKERS=$(cat /shared/rpc-workers)
               set -- "$@" --rpc "$RPC_WORKERS"
               {{- end }}
+              {{- if .Values.speculative.enabled }}
+              {{- if .Values.speculative.draftModelPath }}
+              set -- "$@" --model-draft {{ .Values.speculative.draftModelPath | quote }}
+              set -- "$@" --draft-max {{ .Values.speculative.draftMax | default 16 }}
+              set -- "$@" --draft-min {{ .Values.speculative.draftMin | default 1 }}
+              set -- "$@" --draft-p-min {{ .Values.speculative.draftPMin | default "0.75" }}
+              {{- else if ne .Values.speculative.specType "none" }}
+              set -- "$@" --spec-type {{ .Values.speculative.specType }}
+              {{- end }}
+              {{- end }}
               exec llama-server "$@"
           volumeMounts:
             - name: models

@@ -5,6 +5,13 @@ model:
   name: "Coder (Qwen2.5-7B)"
   contextSize: 4096
 
+speculative:
+  enabled: true
+  draftModelPath: /models/Qwen2.5-Coder-0.5B-Instruct-Q4_K_M.gguf
+  draftMax: 16
+  draftMin: 1
+  draftPMin: 0.75
+
 tolerations:
   - key: node.longhorn.io/storage
     operator: Exists
