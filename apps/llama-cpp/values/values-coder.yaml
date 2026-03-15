@@ -1,13 +1,13 @@
 fullnameOverride: llama-coder
 
 model:
-  path: /models/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf
+  path: /models/Qwen2.5-Coder-7B-Instruct-Q4_0.gguf
   name: "Coder (Qwen2.5-7B)"
   contextSize: 4096
 
 speculative:
   enabled: true
-  draftModelPath: /models/Qwen2.5-Coder-0.5B-Instruct-Q4_K_M.gguf
+  draftModelPath: /models/Qwen2.5-Coder-0.5B-Instruct-Q4_0.gguf
   draftMax: 16
   draftMin: 1
   draftPMin: 0.75

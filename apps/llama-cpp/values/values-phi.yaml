@@ -1,7 +1,7 @@
 fullnameOverride: llama-phi
 
 model:
-  path: /models/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf
+  path: /models/microsoft_Phi-4-mini-instruct-Q4_0.gguf
   name: "Reasoning (Phi-4-mini)"
   contextSize: 4096
 
@@ -15,7 +15,7 @@ tolerations:
     effect: NoSchedule
 
 nodeSelector:
-  kubernetes.io/hostname: pi4-node04.home.mowntan.com
+  kubernetes.io/hostname: pi4-node02.home.mowntan.com
 
 persistence:
   models:

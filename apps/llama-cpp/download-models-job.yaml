@@ -42,6 +42,9 @@ spec:
               download bartowski/Qwen2.5-14B-Instruct-GGUF Qwen2.5-14B-Instruct-Q4_K_M.gguf
               download bartowski/Qwen2.5-Coder-0.5B-Instruct-GGUF Qwen2.5-Coder-0.5B-Instruct-Q4_K_M.gguf
               download bartowski/Llama-3.2-1B-Instruct-GGUF Llama-3.2-1B-Instruct-Q4_K_M.gguf
+              download bartowski/Qwen2.5-Coder-7B-Instruct-GGUF Qwen2.5-Coder-7B-Instruct-Q4_0.gguf
+              download bartowski/Qwen2.5-Coder-0.5B-Instruct-GGUF Qwen2.5-Coder-0.5B-Instruct-Q4_0.gguf
+              download bartowski/microsoft_Phi-4-mini-instruct-GGUF microsoft_Phi-4-mini-instruct-Q4_0.gguf
 
               echo "All done."
           volumeMounts:
