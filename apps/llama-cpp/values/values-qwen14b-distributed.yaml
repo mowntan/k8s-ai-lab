@@ -25,10 +25,18 @@ rpc:
     - key: node.longhorn.io/storage
       operator: Exists
       effect: NoSchedule
+    - key: dedicated-node
+      operator: Equal
+      value: inference
+      effect: NoSchedule
 
 tolerations:
   - key: node.longhorn.io/storage
     operator: Exists
+    effect: NoSchedule
+  - key: dedicated-node
+    operator: Equal
+    value: inference
     effect: NoSchedule
 
 # Leader pinned to node01
